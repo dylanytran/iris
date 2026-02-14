@@ -172,6 +172,14 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
 
                         Divider()
+
+                        Label("Facial Recognition", systemImage: "faceid")
+                            .font(.system(size: 16, weight: .semibold))
+                        Text("The camera uses AR and Vision to detect faces in real time. When a face matches a saved contact, their name and relationship appear as a floating label above their head — helping you remember who you're talking to.")
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondary)
+
+                        Divider()
                         
                         Label("Fall Detection", systemImage: "figure.fall")
                             .font(.system(size: 16, weight: .semibold))
