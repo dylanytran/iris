@@ -6,6 +6,18 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		051D760E2F41021700AEE0D8 /* ZoomVideoSDK.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 051D760D2F41021700AEE0D8 /* ZoomVideoSDK.xcframework */; };
+		051D760F2F41021700AEE0D8 /* ZoomVideoSDK.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 051D760D2F41021700AEE0D8 /* ZoomVideoSDK.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		051D76112F4102D500AEE0D8 /* ZoomVideoSDK.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 051D760D2F41021700AEE0D8 /* ZoomVideoSDK.xcframework */; };
+		051D76152F4102D500AEE0D8 /* ZoomTask.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 051D76122F4102D500AEE0D8 /* ZoomTask.xcframework */; };
+		051D76162F4102D500AEE0D8 /* ZoomTask.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 051D76122F4102D500AEE0D8 /* ZoomTask.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		051D76172F4102D500AEE0D8 /* CptShare.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 051D76132F4102D500AEE0D8 /* CptShare.xcframework */; };
+		051D76182F4102D500AEE0D8 /* CptShare.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 051D76132F4102D500AEE0D8 /* CptShare.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		051D76192F4102D500AEE0D8 /* zoomcml.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 051D76142F4102D500AEE0D8 /* zoomcml.xcframework */; };
+		051D761A2F4102D500AEE0D8 /* zoomcml.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 051D76142F4102D500AEE0D8 /* zoomcml.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		93EEFB7C2F4055670027E63F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -23,15 +35,49 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		051D76102F41021700AEE0D8 /* Embed Frameworks */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				051D760F2F41021700AEE0D8 /* ZoomVideoSDK.xcframework in Embed Frameworks */,
+				051D76182F4102D500AEE0D8 /* CptShare.xcframework in Embed Frameworks */,
+				051D76162F4102D500AEE0D8 /* ZoomTask.xcframework in Embed Frameworks */,
+				051D761A2F4102D500AEE0D8 /* zoomcml.xcframework in Embed Frameworks */,
+			);
+			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		051D760D2F41021700AEE0D8 /* ZoomVideoSDK.xcframework */ = {isa = PBXFileReference; expectedSignature = "AppleDeveloperProgram:BJ4HAAB9B3:Zoom Communications, Inc."; lastKnownFileType = wrapper.xcframework; name = ZoomVideoSDK.xcframework; path = Frameworks/ZoomVideoSDK.xcframework; sourceTree = "<group>"; };
+		051D76122F4102D500AEE0D8 /* ZoomTask.xcframework */ = {isa = PBXFileReference; expectedSignature = "AppleDeveloperProgram:BJ4HAAB9B3:Zoom Communications, Inc."; lastKnownFileType = wrapper.xcframework; name = ZoomTask.xcframework; path = Frameworks/ZoomTask.xcframework; sourceTree = "<group>"; };
+		051D76132F4102D500AEE0D8 /* CptShare.xcframework */ = {isa = PBXFileReference; expectedSignature = "AppleDeveloperProgram:BJ4HAAB9B3:Zoom Communications, Inc."; lastKnownFileType = wrapper.xcframework; name = CptShare.xcframework; path = Frameworks/CptShare.xcframework; sourceTree = "<group>"; };
+		051D76142F4102D500AEE0D8 /* zoomcml.xcframework */ = {isa = PBXFileReference; expectedSignature = "AppleDeveloperProgram:BJ4HAAB9B3:Zoom Communications, Inc."; lastKnownFileType = wrapper.xcframework; name = zoomcml.xcframework; path = Frameworks/zoomcml.xcframework; sourceTree = "<group>"; };
 		93EEFB6B2F4055650027E63F /* treehacks.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = treehacks.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		93EEFB7B2F4055670027E63F /* treehacksTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = treehacksTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		93EEFB852F4055670027E63F /* treehacksUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = treehacksUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		051D761E2F41079A00AEE0D8 /* Exceptions for "treehacks" folder in "treehacks" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 93EEFB6A2F4055650027E63F /* treehacks */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		93EEFB6D2F4055650027E63F /* treehacks */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				051D761E2F41079A00AEE0D8 /* Exceptions for "treehacks" folder in "treehacks" target */,
+			);
 			path = treehacks;
 			sourceTree = "<group>";
 		};
@@ -52,6 +98,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				051D76152F4102D500AEE0D8 /* ZoomTask.xcframework in Frameworks */,
+				051D76172F4102D500AEE0D8 /* CptShare.xcframework in Frameworks */,
+				051D76192F4102D500AEE0D8 /* zoomcml.xcframework in Frameworks */,
+				051D760E2F41021700AEE0D8 /* ZoomVideoSDK.xcframework in Frameworks */,
+				051D76112F4102D500AEE0D8 /* ZoomVideoSDK.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -72,12 +123,24 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		051D760C2F41021700AEE0D8 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				051D76132F4102D500AEE0D8 /* CptShare.xcframework */,
+				051D76142F4102D500AEE0D8 /* zoomcml.xcframework */,
+				051D76122F4102D500AEE0D8 /* ZoomTask.xcframework */,
+				051D760D2F41021700AEE0D8 /* ZoomVideoSDK.xcframework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		93EEFB622F4055650027E63F = {
 			isa = PBXGroup;
 			children = (
 				93EEFB6D2F4055650027E63F /* treehacks */,
 				93EEFB7E2F4055670027E63F /* treehacksTests */,
 				93EEFB882F4055670027E63F /* treehacksUITests */,
+				051D760C2F41021700AEE0D8 /* Frameworks */,
 				93EEFB6C2F4055650027E63F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -102,6 +165,7 @@
 				93EEFB672F4055650027E63F /* Sources */,
 				93EEFB682F4055650027E63F /* Frameworks */,
 				93EEFB692F4055650027E63F /* Resources */,
+				051D76102F41021700AEE0D8 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -393,12 +457,14 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"treehacks/Preview Content\"";
 				DEVELOPMENT_TEAM = U864964B3Y;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = treehacks/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses the camera for memory recall recording and facial recognition.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "This app uses the microphone to record audio alongside video for memory recall.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "This app uses speech recognition so you can ask questions about what you saw.";
@@ -412,8 +478,9 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = dylan.treehacks;
+				PRODUCT_BUNDLE_IDENTIFIER = com.treehacks2026.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -425,12 +492,14 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"treehacks/Preview Content\"";
 				DEVELOPMENT_TEAM = U864964B3Y;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = treehacks/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "This app uses the camera for memory recall recording and facial recognition.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "This app uses the microphone to record audio alongside video for memory recall.";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "This app uses speech recognition so you can ask questions about what you saw.";
@@ -444,8 +513,9 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = dylan.treehacks;
+				PRODUCT_BUNDLE_IDENTIFIER = com.treehacks2026.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

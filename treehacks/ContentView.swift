@@ -12,6 +12,7 @@ import SwiftData
 /// Designed with large, clear icons and labels for accessibility.
 struct ContentView: View {
 
+    @EnvironmentObject private var deepLinkManager: DeepLinkManager
     @StateObject private var cameraManager = CameraManager()
     @StateObject private var faceRecognitionService = FaceRecognitionService()
     @StateObject private var clipManager = ClipManager()
@@ -48,6 +49,13 @@ struct ContentView: View {
                                 Image(systemName: "person.2.fill")
                                 Text("People")
                             }
+                        
+                        // Instructions Tab (Zoom Call Transcripts)
+                        InstructionsListView()
+                            .tabItem {
+                                Image(systemName: "doc.text.fill")
+                                Text("Instructions")
+                            }
 
                         // Settings Tab
                         SettingsView(fallDetectionService: fallDetectionService)
@@ -59,6 +67,12 @@ struct ContentView: View {
                     .tint(.blue)
                     .onAppear {
                         fallDetectionService.requestNotificationPermission()
+                    }
+                    .sheet(isPresented: $deepLinkManager.shouldShowZoomCall) {
+                        ZoomCallView(initialSessionName: deepLinkManager.pendingSessionName)
+                            .onDisappear {
+                                deepLinkManager.pendingSessionName = nil
+                            }
                     }
                 } else {
                     ProgressView("Setting up...")

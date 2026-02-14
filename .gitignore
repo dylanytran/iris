@@ -1,2 +1,4 @@
 # OpenAI API key - copy Secrets.plist.example to Secrets.plist and add your key
 treehacks/Secrets.plist
+Frameworks/
+*.xcuserstate
