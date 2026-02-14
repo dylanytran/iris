@@ -20,6 +20,7 @@ class FallDetectionService: ObservableObject {
     @Published var isMonitoring = false
     @Published var lastFallDetected: Date?
     @Published var fallCount = 0
+    @Published var isCallingEmergency = false
     
     // MARK: - Private Properties
     
@@ -28,11 +29,13 @@ class FallDetectionService: ObservableObject {
     
     /// Threshold for detecting free-fall (low acceleration magnitude).
     /// During free-fall, acceleration approaches 0g.
-    private let freeFallThreshold: Double = 0.3
+    /// Lower value = stricter detection (must be more "weightless")
+    private let freeFallThreshold: Double = 0.2
     
     /// Threshold for detecting impact (high acceleration magnitude).
     /// Impact typically shows 2-3g or more.
-    private let impactThreshold: Double = 2.5
+    /// Higher value = stricter detection (must be harder impact)
+    private let impactThreshold: Double = 3.5
     
     /// Time window to detect impact after free-fall (in seconds).
     private let impactWindowDuration: TimeInterval = 0.5
@@ -160,38 +163,48 @@ class FallDetectionService: ObservableObject {
         DispatchQueue.main.async {
             self.lastFallDetected = Date()
             self.fallCount += 1
+            self.triggerEmergencyCall()
         }
         
         sendFallNotification()
     }
     
+    // MARK: - Emergency Call
+    
+    /// Simulate a fall for testing purposes
+    func simulateFall() {
+        print("FallDetection: Simulating fall for testing")
+        DispatchQueue.main.async {
+            self.lastFallDetected = Date()
+            self.fallCount += 1
+            self.triggerEmergencyCall()
+        }
+    }
+    
+    /// Immediately trigger emergency call via VAPI
+    private func triggerEmergencyCall() {
+        isCallingEmergency = true
+        
+        print("FallDetection: Triggering emergency call via VAPI immediately")
+        
+        // Call VAPI service
+        VAPIService.shared.makeEmergencyCall { [weak self] success in
+            DispatchQueue.main.async {
+                self?.isCallingEmergency = false
+                if success {
+                    print("FallDetection: Emergency call initiated successfully")
+                } else {
+                    print("FallDetection: Failed to initiate emergency call")
+                }
+            }
+        }
+    }
+    
     private func sendFallNotification() {
         let content = UNMutableNotificationContent()
-        content.title = "Fall Detected!"
-        content.body = "A sudden fall was detected. Are you okay? Tap to open the app."
+        content.title = "Fall Detected - Calling Emergency Contact"
+        content.body = "A fall was detected. An emergency call is being placed to your contact."
         content.sound = .defaultCritical
-        content.categoryIdentifier = "FALL_ALERT"
-        
-        // Add action buttons
-        let checkInAction = UNNotificationAction(
-            identifier: "CHECK_IN",
-            title: "I'm OK",
-            options: .foreground
-        )
-        let emergencyAction = UNNotificationAction(
-            identifier: "EMERGENCY",
-            title: "Need Help",
-            options: [.foreground, .destructive]
-        )
-        
-        let category = UNNotificationCategory(
-            identifier: "FALL_ALERT",
-            actions: [checkInAction, emergencyAction],
-            intentIdentifiers: [],
-            options: .customDismissAction
-        )
-        
-        UNUserNotificationCenter.current().setNotificationCategories([category])
         
         // Deliver immediately
         let request = UNNotificationRequest(

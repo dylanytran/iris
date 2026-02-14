@@ -19,51 +19,53 @@ struct ContentView: View {
     @State private var recordingManager: RecordingManager?
 
     var body: some View {
-        Group {
-            if let recordingManager = recordingManager {
-                TabView {
-                    // Camera Tab
-                    MainCameraView(
-                        cameraManager: cameraManager,
-                        recordingManager: recordingManager,
-                        faceRecognitionService: faceRecognitionService,
-                        clipManager: clipManager
-                    )
-                    .tabItem {
-                        Image(systemName: "camera.fill")
-                        Text("Camera")
+        ZStack {
+            Group {
+                if let recordingManager = recordingManager {
+                    TabView {
+                        // Camera Tab
+                        MainCameraView(
+                            cameraManager: cameraManager,
+                            recordingManager: recordingManager,
+                            faceRecognitionService: faceRecognitionService,
+                            clipManager: clipManager
+                        )
+                        .tabItem {
+                            Image(systemName: "camera.fill")
+                            Text("Camera")
+                        }
+
+                        // Clips Debug Tab
+                        ClipDebugView(clipManager: clipManager)
+                            .tabItem {
+                                Image(systemName: "film.stack")
+                                Text("Clips")
+                            }
+
+                        // People Tab
+                        PeopleListView(cameraManager: cameraManager)
+                            .tabItem {
+                                Image(systemName: "person.2.fill")
+                                Text("People")
+                            }
+
+                        // Settings Tab
+                        SettingsView(fallDetectionService: fallDetectionService)
+                            .tabItem {
+                                Image(systemName: "gear")
+                                Text("Settings")
+                            }
                     }
-
-                    // Clips Debug Tab
-                    ClipDebugView(clipManager: clipManager)
-                        .tabItem {
-                            Image(systemName: "film.stack")
-                            Text("Clips")
-                        }
-
-                    // People Tab
-                    PeopleListView(cameraManager: cameraManager)
-                        .tabItem {
-                            Image(systemName: "person.2.fill")
-                            Text("People")
-                        }
-
-                    // Settings Tab
-                    SettingsView(fallDetectionService: fallDetectionService)
-                        .tabItem {
-                            Image(systemName: "gear")
-                            Text("Settings")
-                        }
-                }
-                .tint(.blue)
-                .onAppear {
-                    fallDetectionService.requestNotificationPermission()
-                }
-            } else {
-                ProgressView("Setting up...")
+                    .tint(.blue)
                     .onAppear {
-                        recordingManager = RecordingManager(cameraManager: cameraManager)
+                        fallDetectionService.requestNotificationPermission()
                     }
+                } else {
+                    ProgressView("Setting up...")
+                        .onAppear {
+                            recordingManager = RecordingManager(cameraManager: cameraManager)
+                        }
+                }
             }
         }
     }
@@ -108,10 +110,21 @@ struct SettingsView: View {
                                 .foregroundColor(.secondary)
                         }
                     }
+                    
+                    // Test button for development
+                    Button(action: {
+                        fallDetectionService.simulateFall()
+                    }) {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle")
+                            Text("Test Fall Alert")
+                        }
+                        .foregroundColor(.orange)
+                    }
                 } header: {
                     Text("Safety")
                 } footer: {
-                    Text("When enabled, the app will send a notification if it detects a sudden fall.")
+                    Text("When a fall is detected, an emergency call will be made immediately to your contact via VAPI.")
                 }
                 
                 Section {
@@ -179,7 +192,7 @@ struct SettingsView: View {
                         
                         Label("Fall Detection", systemImage: "figure.fall")
                             .font(.system(size: 16, weight: .semibold))
-                        Text("Enable fall detection in Safety settings. If the phone detects a sudden drop and impact, you'll receive an alert notification.")
+                        Text("Enable fall detection in Safety settings. If the phone detects a sudden drop and impact, an emergency call will be placed immediately to your contact.")
                             .font(.system(size: 14))
                             .foregroundColor(.secondary)
                     }
