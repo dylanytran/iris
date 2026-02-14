@@ -15,7 +15,7 @@ final class ClipManager: ObservableObject {
     // MARK: - Configuration
 
     /// Duration of each clip in seconds.
-    let clipDuration: TimeInterval = 5
+    let clipDuration: TimeInterval = 6
 
     /// Maximum total history to keep in seconds.
     let maxHistory: TimeInterval = 60
@@ -46,6 +46,15 @@ final class ClipManager: ObservableObject {
 
     // Accumulated keywords for the current clip being recorded
     private var currentKeywords = Set<String>()
+
+    /// Number of frames to capture per clip for GPT-4o-mini vision analysis.
+    private let visionFrameCount = 3
+
+    /// JPEG snapshots of representative frames for GPT-4o-mini vision analysis.
+    /// Captured at 25%, 50%, and 75% of the clip duration.
+    private var representativeFrameJPEGs: [Data] = []
+    /// Tracks which capture points (1/4, 2/4, 3/4) have already been taken.
+    private var nextCaptureIndex = 0
 
     // Serial queue for all writing operations (thread safety)
     private let writerQueue = DispatchQueue(label: "com.treehacks.clipWriter", qos: .userInitiated)
@@ -109,6 +118,20 @@ final class ClipManager: ObservableObject {
                 let textLabels = self.frameAnalyzer.recognizeText(in: pixelBuffer)
                 for text in textLabels {
                     self.currentKeywords.insert("text: \(text)")
+                }
+            }
+
+            // Capture representative frames at 25%, 50%, and 75% of the clip
+            // (for GPT-4o-mini vision analysis after the clip is finalized)
+            if self.nextCaptureIndex < self.visionFrameCount,
+               let start = self.currentClipStartTime {
+                // Capture points: 1/4, 2/4, 3/4 of clipDuration
+                let captureTime = self.clipDuration * Double(self.nextCaptureIndex + 1) / Double(self.visionFrameCount + 1)
+                if Date().timeIntervalSince(start) >= captureTime {
+                    if let jpeg = self.frameAnalyzer.pixelBufferToJPEG(pixelBuffer) {
+                        self.representativeFrameJPEGs.append(jpeg)
+                    }
+                    self.nextCaptureIndex += 1
                 }
             }
         }
@@ -176,6 +199,8 @@ final class ClipManager: ObservableObject {
             self.isWritingClip = true
             self.currentKeywords = []
             self.frameCount = 0
+            self.representativeFrameJPEGs = []
+            self.nextCaptureIndex = 0
 
         } catch {
             print("ClipManager: Failed to create AVAssetWriter: \(error)")
@@ -200,6 +225,7 @@ final class ClipManager: ObservableObject {
         let startTime = currentClipStartTime ?? Date()
         let endTime = Date()
         let clipURL = writer.outputURL
+        let frameJPEGs = representativeFrameJPEGs  // Capture for async use
 
         videoInput?.markAsFinished()
 
@@ -207,14 +233,14 @@ final class ClipManager: ObservableObject {
             guard let self = self else { return }
 
             guard writer.status == .completed else {
-                print("ClipManager: Writer finished with status \(writer.status.rawValue)")
+                print("[ClipManager] Writer finished with status \(writer.status.rawValue)")
                 if let error = writer.error {
-                    print("ClipManager: Writer error: \(error)")
+                    print("[ClipManager] Writer error: \(error)")
                 }
                 return
             }
 
-            // Build description from keywords
+            // Build initial description from on-device Vision keywords
             let descriptionParts = keywords.sorted()
             let description: String
             if descriptionParts.isEmpty {
@@ -223,7 +249,7 @@ final class ClipManager: ObservableObject {
                 description = "I see " + descriptionParts.joined(separator: ", ")
             }
 
-            // Compute NLEmbedding vector for the description
+            // Compute NLEmbedding vector for the initial description
             let embedding = self.searchEngine.computeEmbedding(for: description)
 
             let clip = IndexedClip(
@@ -239,6 +265,11 @@ final class ClipManager: ObservableObject {
                 self.indexedClips.append(clip)
                 self.clipCount = self.indexedClips.count
                 self.pruneOldClips()
+
+                // Asynchronously enhance keywords with GPT-4o-mini vision (3 frames in one call)
+                if !frameJPEGs.isEmpty, OpenAIClient.hasAPIKey {
+                    self.enhanceClipWithVision(clipID: clip.id, jpegImages: frameJPEGs, existingKeywords: keywords)
+                }
             }
         }
 
@@ -246,6 +277,57 @@ final class ClipManager: ObservableObject {
         self.assetWriter = nil
         self.videoInput = nil
         self.adaptor = nil
+    }
+
+    // MARK: - GPT-4o-mini Vision Enhancement
+
+    /// Sends representative frames to GPT-4o-mini (all in one API call) and upgrades
+    /// the clip's keywords, description, and embedding when the response comes back.
+    private func enhanceClipWithVision(clipID: UUID, jpegImages: [Data], existingKeywords: Set<String>) {
+        print("[ClipManager] Requesting GPT-4o-mini vision for clip \(clipID.uuidString.prefix(8)) with \(jpegImages.count) frame(s)...")
+
+        Task {
+            do {
+                guard let aiKeywords = try await OpenAIClient.describeImages(jpegImages) else {
+                    print("[ClipManager] Vision returned nil for clip \(clipID.uuidString.prefix(8))")
+                    return
+                }
+
+                // Merge AI keywords with existing on-device keywords
+                var mergedKeywords = existingKeywords
+                for kw in aiKeywords {
+                    mergedKeywords.insert(kw)
+                }
+
+                // Build an improved description prioritizing the AI keywords
+                let aiDescription = "I see " + aiKeywords.joined(separator: ", ")
+                let fullDescription: String
+                if existingKeywords.isEmpty {
+                    fullDescription = aiDescription
+                } else {
+                    // AI keywords first (more accurate), then Vision keywords
+                    let visionPart = existingKeywords.sorted().joined(separator: ", ")
+                    fullDescription = aiDescription + "; also: " + visionPart
+                }
+
+                // Recompute embedding with the richer description
+                let newEmbedding = self.searchEngine.computeEmbedding(for: fullDescription)
+
+                // Update the clip on the main thread
+                await MainActor.run {
+                    if let index = self.indexedClips.firstIndex(where: { $0.id == clipID }) {
+                        self.indexedClips[index].keywords = mergedKeywords
+                        self.indexedClips[index].description = fullDescription
+                        self.indexedClips[index].embedding = newEmbedding
+                        print("[ClipManager] Enhanced clip \(clipID.uuidString.prefix(8)) with \(aiKeywords.count) AI keywords")
+                    } else {
+                        print("[ClipManager] Clip \(clipID.uuidString.prefix(8)) was pruned before enhancement arrived")
+                    }
+                }
+            } catch {
+                print("[ClipManager] Vision enhancement failed: \(error.localizedDescription)")
+            }
+        }
     }
 
     // MARK: - Cleanup
