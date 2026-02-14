@@ -10,7 +10,7 @@ import UIKit
 import Combine
 
 /// Manages the AVCaptureSession with dual outputs:
-/// - AVCaptureVideoDataOutput for real-time frame processing (face detection)
+/// - AVCaptureVideoDataOutput for real-time frame processing
 /// - AVCaptureMovieFileOutput for rolling video recording
 class CameraManager: NSObject, ObservableObject {
 
@@ -30,7 +30,7 @@ class CameraManager: NSObject, ObservableObject {
 
     // MARK: - Frame Callback
 
-    /// Called on every captured video frame for face detection processing.
+    /// Called on every captured video frame for processing.
     var onFrameCaptured: ((CVPixelBuffer, CMTime) -> Void)?
 
     // MARK: - Recording Delegate

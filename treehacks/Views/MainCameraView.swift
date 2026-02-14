@@ -6,11 +6,9 @@
 //
 
 import SwiftUI
-import SwiftData
 
 /// Main camera view that combines:
 /// - Live camera preview
-/// - Face detection overlay with name labels
 /// - Recording status indicator
 /// - Memory recall button
 /// - Voice query button (semantic search over indexed clips)
@@ -18,34 +16,17 @@ struct MainCameraView: View {
 
     @ObservedObject var cameraManager: CameraManager
     @ObservedObject var recordingManager: RecordingManager
-    @ObservedObject var faceRecognitionService: FaceRecognitionService
     @ObservedObject var clipManager: ClipManager
-    @Query private var people: [Person]
 
     @State private var showMemoryRecall = false
     @State private var showVoiceQuery = false
-    @State private var viewSize: CGSize = .zero
 
     var body: some View {
         ZStack {
-            // Camera preview (full screen)
-            CameraPreviewView(session: cameraManager.session)
-                .ignoresSafeArea()
-                .overlay(
-                    GeometryReader { geo in
-                        Color.clear
-                            .onAppear { viewSize = geo.size }
-                            .onChange(of: geo.size) { _, newSize in
-                                viewSize = newSize
-                            }
-                    }
-                )
-
-            // Face detection overlay
-            FaceOverlayView(
-                faces: faceRecognitionService.detectedFaces,
-                viewSize: viewSize
-            )
+            // AR camera preview with face recognition labels (full screen)
+            ARCameraContainerView(onFrameCaptured: { pixelBuffer, timestamp in
+                clipManager.processFrame(pixelBuffer, timestamp: timestamp)
+            })
             .ignoresSafeArea()
 
             // UI Controls overlay
@@ -136,45 +117,22 @@ struct MainCameraView: View {
             }
         }
         .onAppear {
-            faceRecognitionService.updateRegisteredPeople(people)
-            cameraManager.configure()
-            cameraManager.startSession()
+            // AR session handles camera preview, face recognition, and frame
+            // forwarding via ARCameraContainerView's onFrameCaptured callback.
+            // NOTE: AVFoundation recording is disabled while ARKit owns the camera.
 
-            // Wire up frame processing for face recognition AND clip indexing
-            let faceService = faceRecognitionService
-            let clips = clipManager
-
-            cameraManager.onFrameCaptured = { pixelBuffer, timestamp in
-                faceService.processFrame(pixelBuffer)
-                clips.processFrame(pixelBuffer, timestamp: timestamp)
-            }
-
-            // Start rolling recording
+            // Start clip indexing
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                recordingManager.startRollingRecording()
                 clipManager.start()
             }
         }
         .onDisappear {
-            recordingManager.stopRollingRecording()
             clipManager.stop()
-            cameraManager.stopSession()
-        }
-        .onChange(of: people) { _, newPeople in
-            faceRecognitionService.updateRegisteredPeople(newPeople)
         }
         .sheet(isPresented: $showMemoryRecall) {
             MemoryRecallView(recordingManager: recordingManager)
         }
-        .sheet(isPresented: $showVoiceQuery, onDismiss: {
-            // Re-wire frame processing after VoiceQueryView restarts the camera
-            let faceService = faceRecognitionService
-            let clips = clipManager
-            cameraManager.onFrameCaptured = { pixelBuffer, timestamp in
-                faceService.processFrame(pixelBuffer)
-                clips.processFrame(pixelBuffer, timestamp: timestamp)
-            }
-        }) {
+        .sheet(isPresented: $showVoiceQuery) {
             VoiceQueryView(
                 clipManager: clipManager,
                 cameraManager: cameraManager,

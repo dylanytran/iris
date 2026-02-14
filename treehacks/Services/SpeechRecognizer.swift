@@ -188,7 +188,7 @@ final class SpeechRecognizer: ObservableObject {
 
         // Restore audio session
         let audioSession = AVAudioSession.sharedInstance()
-        try? audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
+        try? audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothHFP])
         try? audioSession.setActive(true)
 
         // Notify via callback

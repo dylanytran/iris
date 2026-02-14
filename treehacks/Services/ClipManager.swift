@@ -313,10 +313,13 @@ final class ClipManager: ObservableObject {
                 // Recompute embedding with the richer description
                 let newEmbedding = self.searchEngine.computeEmbedding(for: fullDescription)
 
+                // Capture as let for concurrency safety
+                let finalKeywords = mergedKeywords
+
                 // Update the clip on the main thread
                 await MainActor.run {
                     if let index = self.indexedClips.firstIndex(where: { $0.id == clipID }) {
-                        self.indexedClips[index].keywords = mergedKeywords
+                        self.indexedClips[index].keywords = finalKeywords
                         self.indexedClips[index].description = fullDescription
                         self.indexedClips[index].embedding = newEmbedding
                         print("[ClipManager] Enhanced clip \(clipID.uuidString.prefix(8)) with \(aiKeywords.count) AI keywords")
