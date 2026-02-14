@@ -15,6 +15,7 @@ struct ContentView: View {
     @StateObject private var cameraManager = CameraManager()
     @StateObject private var faceRecognitionService = FaceRecognitionService()
     @StateObject private var clipManager = ClipManager()
+    @StateObject private var fallDetectionService = FallDetectionService()
     @State private var recordingManager: RecordingManager?
 
     var body: some View {
@@ -48,13 +49,16 @@ struct ContentView: View {
                         }
 
                     // Settings Tab
-                    SettingsView()
+                    SettingsView(fallDetectionService: fallDetectionService)
                         .tabItem {
                             Image(systemName: "gear")
                             Text("Settings")
                         }
                 }
                 .tint(.blue)
+                .onAppear {
+                    fallDetectionService.requestNotificationPermission()
+                }
             } else {
                 ProgressView("Setting up...")
                     .onAppear {
@@ -68,12 +72,48 @@ struct ContentView: View {
 // MARK: - Settings View
 
 struct SettingsView: View {
+    @ObservedObject var fallDetectionService: FallDetectionService
     @AppStorage("recordingDuration") private var maxRecordingMinutes: Double = 5
     @AppStorage("faceMatchSensitivity") private var matchSensitivity: Double = 0.35
+    @AppStorage("fallDetectionEnabled") private var fallDetectionEnabled: Bool = false
 
     var body: some View {
         NavigationStack {
             List {
+                Section {
+                    Toggle(isOn: $fallDetectionEnabled) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Fall Detection")
+                                .font(.system(size: 16, weight: .medium))
+                            if fallDetectionService.isMonitoring {
+                                Text("Monitoring active")
+                                    .font(.caption)
+                                    .foregroundColor(.green)
+                            }
+                        }
+                    }
+                    .onChange(of: fallDetectionEnabled) { _, newValue in
+                        if newValue {
+                            fallDetectionService.startMonitoring()
+                        } else {
+                            fallDetectionService.stopMonitoring()
+                        }
+                    }
+                    
+                    if fallDetectionService.fallCount > 0 {
+                        HStack {
+                            Text("Falls detected")
+                            Spacer()
+                            Text("\(fallDetectionService.fallCount)")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("Safety")
+                } footer: {
+                    Text("When enabled, the app will send a notification if it detects a sudden fall.")
+                }
+                
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Keep recordings for")
@@ -134,6 +174,14 @@ struct SettingsView: View {
                         Text("Register friends and family in the People tab. When the camera sees them, their name will appear above their head.")
                             .font(.system(size: 14))
                             .foregroundColor(.secondary)
+                        
+                        Divider()
+                        
+                        Label("Fall Detection", systemImage: "figure.fall")
+                            .font(.system(size: 16, weight: .semibold))
+                        Text("Enable fall detection in Safety settings. If the phone detects a sudden drop and impact, you'll receive an alert notification.")
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondary)
                     }
                     .padding(.vertical, 4)
                 } header: {
@@ -158,6 +206,12 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .onAppear {
+                // Resume monitoring if it was previously enabled
+                if fallDetectionEnabled && !fallDetectionService.isMonitoring {
+                    fallDetectionService.startMonitoring()
+                }
+            }
         }
     }
 
