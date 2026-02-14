@@ -296,10 +296,11 @@ struct VoiceQueryView: View {
                 snapshotClips = clipManager.indexedClips
                 print("[VoiceQueryView] onAppear: \(snapshotClips.count) clips snapshotted")
 
-                // Stop the camera and recording so the microphone is free for speech recognition
-                recordingManager.stopRollingRecording()
+                // Stop clip indexing while the query view is open.
+                // NOTE: We do NOT stop the ARKit session (managed by CameraViewController)
+                // because restarting an AVFoundation session on dismiss would steal the
+                // camera from ARKit and freeze the AR preview.
                 clipManager.stop()
-                cameraManager.stopSession()
 
                 let embeddedCount = snapshotClips.filter { $0.embedding != nil }.count
                 debugInfo = "Clips: \(snapshotClips.count) total, \(embeddedCount) with embeddings"
@@ -330,15 +331,10 @@ struct VoiceQueryView: View {
                 speechRecognizer.onFinished = nil
                 speechRecognizer.stopListening()
 
-                // Restart the camera and recording when returning to the camera view
-                cameraManager.configure()
-                cameraManager.startSession()
-
-                // Re-start recording and clip managers
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    recordingManager.startRollingRecording()
-                    clipManager.start()
-                }
+                // Re-start clip indexing. The ARKit session (and camera preview)
+                // is still running — managed by CameraViewController — so we only
+                // need to resume clip processing here.
+                clipManager.start()
             }
         }
     }
