@@ -42,6 +42,9 @@ struct ZoomCallView: View {
     @State private var controlsOffset: CGSize = .zero
     @State private var controlsPosition: CGPoint = CGPoint(x: UIScreen.main.bounds.width / 2, y: UIScreen.main.bounds.height - 150)
     
+    // Task extraction state
+    @State private var extractedTasksCount = 0
+    
     var body: some View {
         Group {
             if zoomService.isInSession && !isLeaving {
@@ -100,7 +103,7 @@ struct ZoomCallView: View {
         .alert("Call Ended", isPresented: $showSavedAlert) {
             Button("OK") { dismiss() }
         } message: {
-            Text("The transcript has been saved to your Instructions.")
+            Text("The transcript has been saved. Any tasks or reminders mentioned will be added to your task list.")
         }
     }
     
@@ -117,6 +120,11 @@ struct ZoomCallView: View {
                 
                 // Floating draggable controls bar
                 floatingControlsBar(in: geometry)
+                
+                // Live captions at bottom
+                if isTranscribing {
+                    liveCaptionsBar
+                }
                 
                 // Floating transcript bubble
                 if showTranscript {
@@ -158,6 +166,31 @@ struct ZoomCallView: View {
             ShareSheet(items: [inviteText])
         }
         .onAppear { resetControlsTimer() }
+    }
+    
+    // MARK: - Live Captions Bar
+    
+    private var liveCaptionsBar: some View {
+        VStack {
+            Spacer()
+            
+            if !speechRecognizer.transcript.isEmpty {
+                Text(speechRecognizer.transcript)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.black.opacity(0.7))
+                    )
+                    .padding(.horizontal, 40)
+                    .padding(.bottom, showControls ? 220 : 60)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .animation(.easeInOut(duration: 0.2), value: speechRecognizer.transcript)
+            }
+        }
     }
     
     // MARK: - Full Screen Video Background
@@ -381,27 +414,7 @@ struct ZoomCallView: View {
             .padding(.top, 60)
             
             Spacer()
-            
-            // Transcript toggle (above floating controls)
-            Button(action: {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    showTranscript.toggle()
-                }
-                isTranscribing = showTranscript
-                if showTranscript { startTranscription() }
-                else { stopTranscription() }
-            }) {
-                HStack(spacing: 8) {
-                    Image(systemName: showTranscript ? "text.bubble.fill" : "text.bubble")
-                    Text(showTranscript ? "Hide Transcript" : "Show Transcript")
-                }
-                .font(.subheadline.weight(.medium))
-                .foregroundColor(.white)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .background(.ultraThinMaterial, in: Capsule())
-            }
-            .padding(.bottom, 180)
+        
         }
     }
     
@@ -704,10 +717,39 @@ struct ZoomCallView: View {
                     participants: transcriptData.participants
                 )
                 self.modelContext.insert(transcript)
+                
+                // Extract tasks from the transcript in background
+                Task {
+                    await extractAndAddTasks(from: transcriptData.transcript)
+                }
+                
                 self.showSavedAlert = true
             } else {
                 self.dismiss()
             }
+        }
+    }
+    
+    private func extractAndAddTasks(from transcript: String) async {
+        do {
+            let tasks = try await OpenAIClient.extractTasksFromTranscript(transcript)
+            
+            if !tasks.isEmpty {
+                await MainActor.run {
+                    for task in tasks {
+                        let taskItem = TaskItem(
+                            title: task.title,
+                            taskDescription: task.description,
+                            dueDate: Date().addingTimeInterval(86400) // Default to tomorrow
+                        )
+                        TaskStore.shared.addTask(taskItem)
+                    }
+                    extractedTasksCount = tasks.count
+                    print("[ZoomCallView] Added \(tasks.count) task(s) from call transcript")
+                }
+            }
+        } catch {
+            print("[ZoomCallView] Failed to extract tasks: \(error)")
         }
     }
     

@@ -174,6 +174,99 @@ struct OpenAIClient {
     static func describeImage(_ jpegData: Data) async throws -> [String]? {
         try await describeImages([jpegData])
     }
+
+    // MARK: - Task Extraction from Transcript
+
+    /// Prompt for extracting tasks/reminders from a call transcript
+    private static let taskExtractionPrompt = """
+    You are analyzing a transcript from a video call. Extract any actionable tasks, reminders, or to-do items mentioned during the conversation.
+
+    Look for phrases like:
+    - "Don't forget to..."
+    - "Make sure to..."
+    - "Remember to..."
+    - "You should..."
+    - "Please..."
+    - "Can you...?"
+    - Any specific action items or commitments made
+
+    Return ONLY a JSON array of task objects. Each task should have:
+    - "title": A short, action-oriented title (max 50 chars)
+    - "description": Additional context from the conversation (optional)
+
+    If no tasks are found, return an empty array: []
+
+    Example output:
+    [
+      {"title": "Take medication", "description": "Mentioned as a daily reminder"},
+      {"title": "Walk the dogs", "description": "Should be done this evening"}
+    ]
+
+    Return ONLY valid JSON, no other text.
+    """
+
+    /// Extracts actionable tasks from a call transcript.
+    /// Returns an array of (title, description) tuples, or empty if none found or on error.
+    static func extractTasksFromTranscript(_ transcript: String) async throws -> [(title: String, description: String)] {
+        guard !transcript.isEmpty else { return [] }
+        guard let apiKey = loadAPIKey() else {
+            print("[OpenAIClient] No API key, skipping task extraction")
+            return []
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 30
+
+        let body: [String: Any] = [
+            "model": model,
+            "messages": [
+                ["role": "system", "content": taskExtractionPrompt],
+                ["role": "user", "content": "Transcript:\n\n\(transcript)"]
+            ],
+            "max_tokens": 500
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        print("[OpenAIClient] Extracting tasks from transcript (\(transcript.count) chars)...")
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            if let errorBody = String(data: data, encoding: .utf8) {
+                print("[OpenAIClient] Task extraction error: \(errorBody)")
+            }
+            return []
+        }
+
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        guard let choices = json?["choices"] as? [[String: Any]],
+              let first = choices.first,
+              let message = first["message"] as? [String: Any],
+              let content = message["content"] as? String else {
+            print("[OpenAIClient] Task extraction: could not parse response")
+            return []
+        }
+
+        print("[OpenAIClient] Task extraction response: \(content)")
+
+        // Parse the JSON array of tasks
+        guard let jsonData = content.data(using: .utf8),
+              let tasksArray = try? JSONSerialization.jsonObject(with: jsonData) as? [[String: Any]] else {
+            print("[OpenAIClient] Task extraction: could not parse JSON array")
+            return []
+        }
+
+        let tasks = tasksArray.compactMap { dict -> (title: String, description: String)? in
+            guard let title = dict["title"] as? String, !title.isEmpty else { return nil }
+            let description = dict["description"] as? String ?? ""
+            return (title: title, description: description)
+        }
+
+        print("[OpenAIClient] Extracted \(tasks.count) task(s)")
+        return tasks
+    }
 }
 
 private extension String {
