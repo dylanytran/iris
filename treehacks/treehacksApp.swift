@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 import UserNotifications
 
 // MARK: - App Delegate for Notification Handling
@@ -59,7 +60,7 @@ struct treehacksApp: App {
     @StateObject private var deepLinkManager = DeepLinkManager.shared
 
     var sharedModelContainer: ModelContainer = {
-        let schema = Schema([Person.self, MeetingTranscript.self])
+        let schema = Schema([MeetingTranscript.self])
         let modelConfiguration = ModelConfiguration(
             schema: schema,
             isStoredInMemoryOnly: false
