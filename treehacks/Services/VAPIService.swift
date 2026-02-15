@@ -22,7 +22,7 @@ class VAPIService {
     private let assistantId = "788457f4-6bf9-44c8-86d0-62ab2421778f"
     
     /// VAPI Phone Number ID for outbound calls
-    private let phoneNumberId = "e6906873-4d47-4206-8295-b4df863f28f2"
+    private let phoneNumberId = "9335836b-52db-4620-b158-271706ded58d"
     
     /// Your VAPI API key - should be stored in Secrets.plist
     private var apiKey: String {
