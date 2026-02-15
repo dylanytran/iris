@@ -297,7 +297,6 @@ struct SettingsView: View {
     @ObservedObject var fallDetectionService: FallDetectionService
     @ObservedObject var clipManager: ClipManager
     var onStartZoomCall: () -> Void
-    @AppStorage("recordingDuration") private var maxRecordingMinutes: Double = 5
     @AppStorage("fallDetectionEnabled") private var fallDetectionEnabled: Bool = false
 
     var body: some View {
@@ -346,24 +345,6 @@ struct SettingsView: View {
                     Text("Safety")
                 } footer: {
                     Text("When a fall is detected, an emergency call will be made immediately to your contact via VAPI.")
-                }
-                
-                Section {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Keep recordings for")
-                            .font(.system(size: 16, weight: .medium))
-                        Picker("Duration", selection: $maxRecordingMinutes) {
-                            Text("2 minutes").tag(2.0)
-                            Text("5 minutes").tag(5.0)
-                            Text("10 minutes").tag(10.0)
-                        }
-                        .pickerStyle(.segmented)
-                    }
-                    .padding(.vertical, 4)
-                } header: {
-                    Text("Memory Recording")
-                } footer: {
-                    Text("Longer durations use more storage space.")
                 }
 
                 Section {
