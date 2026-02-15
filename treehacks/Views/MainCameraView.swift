@@ -7,7 +7,9 @@
 //  Minimalist camera view designed for a smart-glasses style experience.
 //  - Red blinking recording dot (top left)
 //  - Purple mic icon for inline voice query (top right)
-//  - Inline result overlay (left side) when a memory clip is found
+//  - Voice queries are routed through VoiceAssistant (OpenAI function calling)
+//    which can search memories, manage tasks, and look up contacts
+//  - Inline result overlay (left side) shows the assistant's response
 
 import SwiftUI
 import AVKit
@@ -24,8 +26,7 @@ struct MainCameraView: View {
     @State private var isSearching = false
     @State private var searchResult: ClipSearchResult?
     @State private var player: AVPlayer?
-    @State private var openAIAnswer: String?
-    @State private var isGeneratingAnswer = false
+    @State private var assistantAnswer: String?
     @State private var snapshotClips: [IndexedClip] = []
     @State private var showResult = false
     @State private var showNoResult = false
@@ -98,7 +99,7 @@ struct MainCameraView: View {
                         ProgressView()
                             .tint(.white)
                             .scaleEffect(0.8)
-                        Text("Searching memories...")
+                        Text("Processing...")
                             .font(.system(size: 13, weight: .medium))
                             .foregroundColor(.white)
                     }
@@ -112,39 +113,32 @@ struct MainCameraView: View {
                 Spacer()
 
                 // --- Inline result overlay (left side) ---
-                if showResult, let result = searchResult, let player = player {
+                if showResult, let answer = assistantAnswer {
                     HStack {
                         VStack(alignment: .leading, spacing: 8) {
-                            // Answer text above the video
-                            if isGeneratingAnswer {
-                                HStack(spacing: 6) {
-                                    ProgressView()
-                                        .tint(.white)
-                                        .scaleEffect(0.7)
-                                    Text("Thinking...")
-                                        .font(.system(size: 12, weight: .medium))
-                                        .foregroundColor(.white.opacity(0.9))
-                                }
-                            } else if let answer = openAIAnswer {
-                                Text(answer)
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundColor(.white)
-                                    .lineLimit(3)
-                                    .fixedSize(horizontal: false, vertical: true)
+                            // Assistant answer text
+                            Text(answer)
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.white)
+                                .lineLimit(6)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                            // If a memory clip was found, show time + video
+                            if let result = searchResult {
+                                Text(result.clip.timeAgoLabel)
+                                    .font(.system(size: 11, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.7))
                             }
 
-                            // Time ago badge
-                            Text(result.clip.timeAgoLabel)
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(.white.opacity(0.7))
-
-                            // Video player
-                            VideoPlayer(player: player)
-                                .frame(width: 160, height: 120)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
-                                .shadow(color: .black.opacity(0.4), radius: 8, y: 4)
+                            if let player = player {
+                                VideoPlayer(player: player)
+                                    .frame(width: 160, height: 120)
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                                    .shadow(color: .black.opacity(0.4), radius: 8, y: 4)
+                            }
                         }
                         .padding(12)
+                        .frame(maxWidth: player != nil ? nil : 260, alignment: .leading)
                         .background(
                             RoundedRectangle(cornerRadius: 14)
                                 .fill(.ultraThinMaterial)
@@ -169,12 +163,12 @@ struct MainCameraView: View {
                     ))
                 }
 
-                // No result message
+                // Error message
                 if showNoResult {
                     HStack(spacing: 6) {
-                        Image(systemName: "magnifyingglass")
+                        Image(systemName: "exclamationmark.triangle")
                             .font(.system(size: 12))
-                        Text("No matching memory found")
+                        Text("Couldn't process request")
                             .font(.system(size: 13, weight: .medium))
                     }
                     .foregroundColor(.white.opacity(0.8))
@@ -246,61 +240,50 @@ struct MainCameraView: View {
                 return
             }
 
-            searchClips(query: finalTranscript)
+            processVoiceQuery(query: finalTranscript)
         }
     }
 
-    // MARK: - Search
+    // MARK: - Voice Assistant
 
-    private func searchClips(query: String) {
+    private func processVoiceQuery(query: String) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isSearching else { return }
 
         isSearching = true
-        openAIAnswer = nil
+        assistantAnswer = nil
 
         let clips = snapshotClips
+        let assistant = VoiceAssistant(searchEngine: clipManager.searchEngine)
 
-        DispatchQueue.global(qos: .userInitiated).async {
-            let result = clipManager.searchEngine.findBestClip(for: trimmed, in: clips)
+        Task { @MainActor in
+            defer { isSearching = false }
 
-            DispatchQueue.main.async {
-                isSearching = false
+            do {
+                let response = try await assistant.process(query: trimmed, clips: clips)
 
-                if let result = result,
-                   FileManager.default.fileExists(atPath: result.clip.fileURL.path) {
+                assistantAnswer = response.answer
 
-                    // Set audio to playback
+                // If the assistant found a matching clip, show the video
+                if let clipResult = response.clipResult,
+                   FileManager.default.fileExists(atPath: clipResult.clip.fileURL.path) {
+
                     let audioSession = AVAudioSession.sharedInstance()
                     try? audioSession.setCategory(.playback, mode: .default, options: [])
                     try? audioSession.setActive(true)
 
-                    searchResult = result
-                    let avPlayer = AVPlayer(url: result.clip.fileURL)
+                    searchResult = clipResult
+                    let avPlayer = AVPlayer(url: clipResult.clip.fileURL)
                     player = avPlayer
                     avPlayer.play()
-                    showResult = true
+                }
 
-                    // Generate AI answer
-                    Task { @MainActor in
-                        isGeneratingAnswer = true
-                        defer { isGeneratingAnswer = false }
-                        do {
-                            if let answer = try await OpenAIClient.generateAnswer(
-                                memory: result.clip.description,
-                                question: trimmed
-                            ) {
-                                openAIAnswer = answer
-                            }
-                        } catch {
-                            print("[MainCameraView] OpenAI error: \(error)")
-                        }
-                    }
-                } else {
-                    showNoResult = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                        showNoResult = false
-                    }
+                showResult = true
+            } catch {
+                print("[MainCameraView] VoiceAssistant error: \(error)")
+                showNoResult = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                    showNoResult = false
                 }
             }
         }
@@ -312,8 +295,7 @@ struct MainCameraView: View {
         player?.pause()
         player = nil
         searchResult = nil
-        openAIAnswer = nil
+        assistantAnswer = nil
         showResult = false
-        isGeneratingAnswer = false
     }
 }

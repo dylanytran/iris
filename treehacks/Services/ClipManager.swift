@@ -10,6 +10,10 @@
 import AVFoundation
 import Combine
 
+/// Global toggle for OpenAI vision enhancement during clip management.
+/// Set to `true` to enable GPT-4o-mini keyword enrichment on finalized clips.
+let ENABLE_OPENAI_CLIP_ENHANCEMENT = true
+
 final class ClipManager: ObservableObject {
 
     // MARK: - Configuration
@@ -267,7 +271,7 @@ final class ClipManager: ObservableObject {
                 self.pruneOldClips()
 
                 // Asynchronously enhance keywords with GPT-4o-mini vision (3 frames in one call)
-                if !frameJPEGs.isEmpty, OpenAIClient.hasAPIKey {
+                if ENABLE_OPENAI_CLIP_ENHANCEMENT, !frameJPEGs.isEmpty, OpenAIClient.hasAPIKey {
                     self.enhanceClipWithVision(clipID: clip.id, jpegImages: frameJPEGs, existingKeywords: keywords)
                 }
             }
