@@ -11,7 +11,6 @@ import SwiftUI
 /// Designed with large, clear icons and labels for accessibility.
 struct ContentView: View {
 
-    @EnvironmentObject private var deepLinkManager: DeepLinkManager
     @StateObject private var cameraManager = CameraManager()
     @StateObject private var clipManager = ClipManager()
     @StateObject private var fallDetectionService = FallDetectionService()
@@ -33,13 +32,6 @@ struct ContentView: View {
                             Text("Camera")
                         }
 
-                        // Clips Debug Tab
-                        ClipDebugView(clipManager: clipManager)
-                            .tabItem {
-                                Image(systemName: "film.stack")
-                                Text("Clips")
-                            }
-
                         // Contacts tab
                         ContactsView()
                             .tabItem {
@@ -55,7 +47,7 @@ struct ContentView: View {
                             }
 
                         // Settings Tab
-                        SettingsView(fallDetectionService: fallDetectionService)
+                        SettingsView(fallDetectionService: fallDetectionService, clipManager: clipManager)
                             .tabItem {
                                 Image(systemName: "gear")
                                 Text("Settings")
@@ -64,12 +56,6 @@ struct ContentView: View {
                     .tint(.blue)
                     .onAppear {
                         fallDetectionService.requestNotificationPermission()
-                    }
-                    .sheet(isPresented: $deepLinkManager.shouldShowZoomCall) {
-                        ZoomCallView(initialSessionName: deepLinkManager.pendingSessionName)
-                            .onDisappear {
-                                deepLinkManager.pendingSessionName = nil
-                            }
                     }
                 } else {
                     ProgressView("Setting up...")
@@ -86,6 +72,7 @@ struct ContentView: View {
 
 struct SettingsView: View {
     @ObservedObject var fallDetectionService: FallDetectionService
+    @ObservedObject var clipManager: ClipManager
     @AppStorage("recordingDuration") private var maxRecordingMinutes: Double = 5
     @AppStorage("fallDetectionEnabled") private var fallDetectionEnabled: Bool = false
 
@@ -156,57 +143,17 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Label("Memory Recall", systemImage: "clock.arrow.circlepath")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text("The app continuously records what you see. Tap \"Recall Memory\" to go back in time and see where you placed something.")
-                            .font(.system(size: 14))
-                            .foregroundColor(.secondary)
-
-                        Divider()
-
-                        Label("Voice Query", systemImage: "mic.fill")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text("Tap \"Ask\" and speak a question like \"Where did I put my keys?\" The app will find and play the most relevant clip from the last 60 seconds.")
-                            .font(.system(size: 14))
-                            .foregroundColor(.secondary)
-
-                        Divider()
-
-                        Label("Facial Recognition", systemImage: "faceid")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text("The camera uses AR and Vision to detect faces in real time. When a face matches a saved contact, their name and relationship appear as a floating label above their head — helping you remember who you're talking to.")
-                            .font(.system(size: 14))
-                            .foregroundColor(.secondary)
-
-                        Divider()
-                        
-                        Label("Fall Detection", systemImage: "figure.fall")
-                            .font(.system(size: 16, weight: .semibold))
-                        Text("Enable fall detection in Safety settings. If the phone detects a sudden drop and impact, an emergency call will be placed immediately to your contact.")
-                            .font(.system(size: 14))
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.vertical, 4)
-                } header: {
-                    Text("How It Works")
-                }
-
-                Section {
-                    HStack {
-                        Text("Version")
-                        Spacer()
-                        Text("1.0.0")
-                            .foregroundColor(.secondary)
-                    }
-                    HStack {
-                        Text("Built at")
-                        Spacer()
-                        Text("TreeHacks 2026")
-                            .foregroundColor(.secondary)
+                    NavigationLink {
+                        ClipDebugView(clipManager: clipManager)
+                    } label: {
+                        HStack {
+                            Image(systemName: "film.stack")
+                                .foregroundColor(.blue)
+                            Text("Clips Debug")
+                        }
                     }
                 } header: {
-                    Text("About")
+                    Text("Debug")
                 }
             }
             .navigationTitle("Settings")
