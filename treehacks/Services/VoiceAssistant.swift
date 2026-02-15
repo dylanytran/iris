@@ -70,7 +70,7 @@ final class VoiceAssistant {
 
         1. **Memory Search** - Search recent video clips recorded by the glasses. \
         Use `search_memory` when the user asks about something they saw, where they \
-        placed an object, or wants to recall a recent event.
+        placed an object, or wants to recall a recent event. Do not repeat the context verbatim
 
         2. **Task Management** - Manage the user's to-do list. Use the task tools \
         (`list_tasks`, `add_task`, `update_task`, `delete_task`) to list, create, \

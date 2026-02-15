@@ -9,6 +9,7 @@
 
 import AVFoundation
 import Combine
+import UIKit
 
 /// Global toggle for OpenAI vision enhancement during clip management.
 /// Set to `true` to enable GPT-4o-mini keyword enrichment on finalized clips.
@@ -177,7 +178,7 @@ final class ClipManager: ObservableObject {
 
             let input = AVAssetWriterInput(mediaType: .video, outputSettings: outputSettings)
             input.expectsMediaDataInRealTime = true
-            input.transform = CGAffineTransform(rotationAngle: .pi / 2) // Portrait
+            input.transform = videoTransformForCurrentOrientation()
 
             let pixelAdaptor = AVAssetWriterInputPixelBufferAdaptor(
                 assetWriterInput: input,
@@ -208,6 +209,32 @@ final class ClipManager: ObservableObject {
 
         } catch {
             print("ClipManager: Failed to create AVAssetWriter: \(error)")
+        }
+    }
+
+    /// ARKit delivers frames in landscape-right. Return the transform so the written video is upright for the user.
+    private func videoTransformForCurrentOrientation() -> CGAffineTransform {
+        var orientation: UIDeviceOrientation = .portrait
+        if Thread.isMainThread {
+            orientation = UIDevice.current.orientation
+        } else {
+            DispatchQueue.main.sync {
+                orientation = UIDevice.current.orientation
+            }
+        }
+        switch orientation {
+        case .portrait:
+            return CGAffineTransform(rotationAngle: .pi / 2)
+        case .portraitUpsideDown:
+            return CGAffineTransform(rotationAngle: -.pi / 2)
+        case .landscapeRight:
+            return .identity
+        case .landscapeLeft:
+            return CGAffineTransform(rotationAngle: .pi)
+        case .faceUp, .faceDown, .unknown:
+            return CGAffineTransform(rotationAngle: .pi / 2)
+        @unknown default:
+            return CGAffineTransform(rotationAngle: .pi / 2)
         }
     }
 
