@@ -30,7 +30,7 @@ const openai = new OpenAI({
 async function runWeeklyAnalysis() {
     console.log('🗓️  Starting weekly transcript analysis...');
     console.log(`📅 Date: ${new Date().toISOString()}`);
-    
+
     try {
         // Get all users with transcripts from the past week
         const usersResult = await db.query(`
@@ -39,15 +39,15 @@ async function runWeeklyAnalysis() {
             JOIN transcripts t ON t.user_id = u.id
             WHERE t.created_at >= NOW() - INTERVAL '7 days'
         `);
-        
+
         console.log(`👥 Found ${usersResult.rows.length} users with recent transcripts`);
-        
+
         for (const user of usersResult.rows) {
             await analyzeUserWeek(user);
         }
-        
+
         console.log('✅ Weekly analysis complete!');
-        
+
     } catch (error) {
         console.error('❌ Weekly analysis failed:', error);
         process.exit(1);
@@ -61,7 +61,7 @@ async function runWeeklyAnalysis() {
  */
 async function analyzeUserWeek(user) {
     console.log(`\n📊 Analyzing user: ${user.name || user.device_id}`);
-    
+
     // Get all transcripts from the past week
     const transcriptsResult = await db.query(`
         SELECT id, session_name, transcript, duration_seconds, participants, created_at
@@ -69,14 +69,14 @@ async function analyzeUserWeek(user) {
         WHERE user_id = $1 AND created_at >= NOW() - INTERVAL '7 days'
         ORDER BY created_at ASC
     `, [user.id]);
-    
+
     const transcripts = transcriptsResult.rows;
     console.log(`   📝 Found ${transcripts.length} transcripts this week`);
-    
+
     if (transcripts.length === 0) {
         return;
     }
-    
+
     // Calculate basic stats
     const stats = {
         totalTranscripts: transcripts.length,
@@ -84,20 +84,20 @@ async function analyzeUserWeek(user) {
         averageDuration: Math.round(transcripts.reduce((sum, t) => sum + (t.duration_seconds || 0), 0) / transcripts.length),
         totalWords: transcripts.reduce((sum, t) => sum + t.transcript.split(/\s+/).length, 0)
     };
-    
+
     console.log(`   ⏱️  Total call time: ${Math.round(stats.totalDuration / 60)} minutes`);
-    
+
     // Generate weekly cognitive analysis
     const weeklyAnalysis = await generateWeeklyReport(user, transcripts, stats);
-    
+
     // Store the weekly report
     await db.query(`
         INSERT INTO transcript_analysis (transcript_id, analysis_type, result)
         VALUES ($1, 'weekly_report', $2)
     `, [transcripts[transcripts.length - 1].id, JSON.stringify(weeklyAnalysis)]);
-    
+
     console.log(`   ✅ Weekly report generated and saved`);
-    
+
     // Check for alerts
     if (weeklyAnalysis.alertLevel === 'significant' || weeklyAnalysis.alertLevel === 'moderate') {
         console.log(`   ⚠️  ALERT: ${weeklyAnalysis.alertLevel} concerns detected`);
@@ -116,7 +116,7 @@ async function generateWeeklyReport(user, transcripts, stats) {
         const excerpt = t.transcript.substring(0, 800);
         return `--- ${t.session_name} (${date}, ${Math.round((t.duration_seconds || 0) / 60)} min) ---\n${excerpt}...`;
     }).join('\n\n');
-    
+
     const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
@@ -171,16 +171,16 @@ ${excerpts}`
         temperature: 0.3,
         max_tokens: 2000
     });
-    
+
     const analysis = JSON.parse(response.choices[0].message.content);
-    
+
     // Add metadata
     analysis.generatedAt = new Date().toISOString();
     analysis.userId = user.id;
     analysis.periodStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     analysis.periodEnd = new Date().toISOString();
     analysis.stats = stats;
-    
+
     return analysis;
 }
 
