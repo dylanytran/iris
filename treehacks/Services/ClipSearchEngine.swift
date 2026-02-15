@@ -4,8 +4,9 @@
 //
 //  Uses Apple's Natural Language sentence embedding model to perform
 //  semantic search over indexed video clip descriptions.
+//  All NLEmbedding access is confined to a single serial queue to avoid
+//  EXC_BAD_ACCESS (NLEmbedding is not thread-safe).
 //  Falls back to keyword matching when embeddings are unavailable.
-//  Adapted from the SemanticSearchEngine in TreeHacksTest.
 //
 
 import Foundation
@@ -18,31 +19,46 @@ struct ClipSearchResult {
     let method: String  // "embedding", "keyword", or "recent"
 }
 
+/// Max character count for embedding input to avoid edge-case crashes.
+private let maxEmbeddingInputLength = 10_000
+
 final class ClipSearchEngine {
 
     private let embedding: NLEmbedding?
+    /// Serial queue for all NLEmbedding usage (not thread-safe).
+    private let nlQueue = DispatchQueue(label: "com.treehacks.clipSearchEngine.nl", qos: .userInitiated)
 
     init() {
-        embedding = NLEmbedding.sentenceEmbedding(for: .english)
+        // Create embedding on the queue that will use it so we never touch it from another thread.
+        embedding = nlQueue.sync { NLEmbedding.sentenceEmbedding(for: .english) }
     }
 
     var isAvailable: Bool { embedding != nil }
 
     // MARK: - Embedding
 
-    /// Compute embedding vector for a text description.
+    /// Compute embedding vector for a text description. Safe to call from any thread.
     func computeEmbedding(for text: String) -> [Double]? {
-        guard let embedding = embedding else { return nil }
-        return embedding.vector(for: text)
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed.count <= maxEmbeddingInputLength else { return nil }
+        return nlQueue.sync {
+            guard let embedding = embedding else { return nil }
+            return embedding.vector(for: trimmed)
+        }
     }
 
     // MARK: - Primary Search (Embedding)
 
     /// Find the best matching indexed clip using embedding similarity.
     func findBestClipByEmbedding(for query: String, in clips: [IndexedClip]) -> ClipSearchResult? {
-        guard let embedding = embedding,
-              let queryVector = embedding.vector(for: query),
-              !clips.isEmpty else { return nil }
+        guard !clips.isEmpty else { return nil }
+        let queryVector: [Double]? = nlQueue.sync {
+            guard let embedding = embedding else { return nil }
+            let t = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !t.isEmpty, t.count <= maxEmbeddingInputLength else { return nil }
+            return embedding.vector(for: t)
+        }
+        guard let queryVector = queryVector else { return nil }
 
         var bestClip: IndexedClip?
         var bestScore: Double = -1.0
@@ -137,9 +153,13 @@ final class ClipSearchEngine {
 
     /// Score every clip against a query for debug display.
     func scoreAllClips(for query: String, in clips: [IndexedClip]) -> [(clip: IndexedClip, score: Double)] {
-        guard let embedding = embedding,
-              let queryVector = embedding.vector(for: query) else {
-            // If no embedding, return clips with 0 scores
+        let queryVector: [Double]? = nlQueue.sync {
+            guard let embedding = embedding else { return nil }
+            let t = query.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !t.isEmpty, t.count <= maxEmbeddingInputLength else { return nil }
+            return embedding.vector(for: t)
+        }
+        guard let queryVector = queryVector else {
             return clips.map { ($0, 0.0) }
         }
 
