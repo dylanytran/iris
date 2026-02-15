@@ -19,6 +19,8 @@ struct ContentView: View {
     @State private var recordingManager: RecordingManager?
     @State private var showFullCallView = false
     @State private var showMiniControls = true
+    @State private var selectedTab = 0
+    @State private var cameraTabBarExpanded = false
     
     // Draggable floating call overlay state
     @State private var floatingCallOffset: CGSize = .zero
@@ -27,17 +29,19 @@ struct ContentView: View {
     var body: some View {
         Group {
             if let recordingManager = recordingManager {
-                TabView {
+                TabView(selection: $selectedTab) {
                     // Camera Tab
                     MainCameraView(
                         cameraManager: cameraManager,
                         recordingManager: recordingManager,
                         clipManager: clipManager
                     )
+                    .toolbar(.hidden, for: .tabBar)
                     .tabItem {
                         Image(systemName: "camera.fill")
                         Text("Camera")
                     }
+                    .tag(0)
 
                     // Contacts tab
                     ContactsView()
@@ -45,6 +49,7 @@ struct ContentView: View {
                             Image(systemName: "person.3.fill")
                             Text("Contacts")
                         }
+                        .tag(1)
                     
                     // Tasks Tab
                     TasksListView()
@@ -52,6 +57,7 @@ struct ContentView: View {
                             Image(systemName: "checklist")
                             Text("Tasks")
                         }
+                        .tag(2)
 
                     // Settings Tab
                     SettingsView(fallDetectionService: fallDetectionService, clipManager: clipManager, onStartZoomCall: {
@@ -61,8 +67,32 @@ struct ContentView: View {
                             Image(systemName: "gear")
                             Text("Settings")
                         }
+                        .tag(3)
                 }
                 .tint(.blue)
+                .overlay {
+                    if selectedTab == 0 {
+                        VStack {
+                            Spacer()
+                            if cameraTabBarExpanded {
+                                expandedCameraTabBar
+                            } else {
+                                HStack {
+                                    Spacer()
+                                    collapsedCameraTabButton
+                                }
+                                .padding(.horizontal, 20)
+                            }
+                        }
+                        .padding(.bottom, 16)
+                        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: cameraTabBarExpanded)
+                    }
+                }
+                .onChange(of: selectedTab) { _, newTab in
+                    if newTab != 0 {
+                        cameraTabBarExpanded = false
+                    }
+                }
                 .onAppear {
                     fallDetectionService.requestNotificationPermission()
                 }
@@ -85,6 +115,77 @@ struct ContentView: View {
         }
         .fullScreenCover(isPresented: $showFullCallView) {
             ZoomCallView()
+        }
+    }
+    
+    // MARK: - Custom Camera Tab Bar
+    
+    private var expandedCameraTabBar: some View {
+        HStack(spacing: 2) {
+            cameraTabItem(icon: "camera.fill", label: "Camera", tag: 0)
+            cameraTabItem(icon: "person.3.fill", label: "Contacts", tag: 1)
+            cameraTabItem(icon: "checklist", label: "Tasks", tag: 2)
+            cameraTabItem(icon: "gear", label: "Settings", tag: 3)
+            
+            // Collapse button
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    cameraTabBarExpanded = false
+                }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.white.opacity(0.5))
+                    .frame(width: 26, height: 26)
+                    .background(Color.white.opacity(0.12), in: Circle())
+            }
+            .padding(.leading, 4)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.white.opacity(0.15), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.3), radius: 20, y: 10)
+        .padding(.horizontal, 20)
+        .transition(.scale(scale: 0.5, anchor: .bottomTrailing).combined(with: .opacity))
+    }
+    
+    private var collapsedCameraTabButton: some View {
+        Button {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                cameraTabBarExpanded = true
+            }
+        } label: {
+            Image(systemName: "square.grid.2x2")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(width: 48, height: 48)
+                .background(.ultraThinMaterial, in: Circle())
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.15), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.2), radius: 10, y: 5)
+        }
+        .transition(.scale(scale: 0.5, anchor: .bottomTrailing).combined(with: .opacity))
+    }
+    
+    private func cameraTabItem(icon: String, label: String, tag: Int) -> some View {
+        Button {
+            if tag == 0 {
+                // Already on camera, just collapse
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    cameraTabBarExpanded = false
+                }
+            } else {
+                selectedTab = tag
+            }
+        } label: {
+            VStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.system(size: 18))
+                Text(label)
+                    .font(.system(size: 10, weight: .medium))
+            }
+            .foregroundColor(tag == 0 ? .blue : .white.opacity(0.75))
+            .frame(width: 62, height: 44)
         }
     }
     
