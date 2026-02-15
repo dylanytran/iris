@@ -29,11 +29,26 @@ struct ZoomCallView: View {
     @State private var showSavedAlert = false
     @State private var showShareSheet = false
     @State private var isLeavingIntentionally = false
+    @State private var isLeaving = false
     
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                if zoomService.isInSession {
+                if isLeaving {
+                    // Show nothing while leaving to prevent SDK access
+                    VStack {
+                        Spacer()
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        Text("Ending call...")
+                            .foregroundColor(.white)
+                            .padding(.top, 8)
+                        Spacer()
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.black)
+                    .ignoresSafeArea()
+                } else if zoomService.isInSession {
                     // In-call view
                     inCallView
                 } else {
@@ -41,11 +56,11 @@ struct ZoomCallView: View {
                     joinSessionView
                 }
             }
-            .navigationTitle(zoomService.isInSession ? "In Call" : "Join Call")
+            .navigationTitle(isLeaving ? "Ending..." : (zoomService.isInSession ? "In Call" : "Join Call"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    if !zoomService.isInSession {
+                    if !zoomService.isInSession && !isLeaving {
                         Button("Cancel") {
                             dismiss()
                         }
@@ -455,32 +470,40 @@ struct ZoomCallView: View {
     
     private func endCallAndSave() {
         isLeavingIntentionally = true
+        isLeaving = true
         stopTranscription()
         
-        if let transcriptData = zoomService.leaveSession() {
-            // Save to SwiftData
-            let transcript = MeetingTranscript(
-                title: transcriptData.title,
-                transcript: transcriptData.transcript,
-                date: transcriptData.date,
-                duration: transcriptData.duration,
-                participants: transcriptData.participants
-            )
-            modelContext.insert(transcript)
-            
-            showSavedAlert = true
-        } else {
-            dismiss()
+        // Small delay to let SwiftUI stop rendering the video views
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            if let transcriptData = self.zoomService.leaveSession() {
+                // Save to SwiftData
+                let transcript = MeetingTranscript(
+                    title: transcriptData.title,
+                    transcript: transcriptData.transcript,
+                    date: transcriptData.date,
+                    duration: transcriptData.duration,
+                    participants: transcriptData.participants
+                )
+                self.modelContext.insert(transcript)
+                self.showSavedAlert = true
+            } else {
+                self.dismiss()
+            }
         }
     }
     
     private func endCallWithoutSaving() {
         isLeavingIntentionally = true
+        isLeaving = true
         stopTranscription()
-        _ = zoomService.leaveSession()
-        // Small delay to let SDK finish cleanup before dismissing
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            dismiss()
+        
+        // Small delay to let SwiftUI stop rendering the video views
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            _ = self.zoomService.leaveSession()
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                self.dismiss()
+            }
         }
     }
 }
