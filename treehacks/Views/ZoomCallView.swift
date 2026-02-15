@@ -731,7 +731,7 @@ struct ZoomCallView: View {
         // Small delay to let SwiftUI stop rendering the video views
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             if let transcriptData = self.zoomService.leaveSession() {
-                // Save to SwiftData
+                // Save to SwiftData (local)
                 let transcript = MeetingTranscript(
                     title: transcriptData.title,
                     transcript: transcriptData.transcript,
@@ -746,10 +746,47 @@ struct ZoomCallView: View {
                     await extractAndAddTasks(from: transcriptData.transcript)
                 }
                 
+                // Upload to backend for cloud storage & analysis
+                Task {
+                    await uploadTranscriptToBackend(transcriptData)
+                }
+                
                 self.showSavedAlert = true
             } else {
                 self.dismiss()
             }
+        }
+    }
+    
+    private func uploadTranscriptToBackend(_ data: MeetingTranscriptData) async {
+        do {
+            let response = try await TranscriptAPIService.shared.saveTranscript(
+                sessionName: data.title,
+                transcript: data.transcript,
+                durationSeconds: Int(data.duration),
+                participants: data.participants
+            )
+            print("[ZoomCallView] Transcript uploaded to backend: \(response.id)")
+            
+            // Trigger cognitive analysis in background
+            Task {
+                do {
+                    let analysis = try await TranscriptAPIService.shared.analyzeConversation(transcriptId: response.id)
+                    print("[ZoomCallView] Cognitive analysis complete - Alert level: \(analysis.alertLevel)")
+                    
+                    // Show alert if concerning patterns detected
+                    if analysis.alertLevel == "moderate" || analysis.alertLevel == "significant" {
+                        await MainActor.run {
+                            // Could show a notification here
+                            print("[ZoomCallView] ⚠️ Cognitive concern detected: \(analysis.overallAssessment)")
+                        }
+                    }
+                } catch {
+                    print("[ZoomCallView] Analysis failed: \(error)")
+                }
+            }
+        } catch {
+            print("[ZoomCallView] Failed to upload transcript: \(error)")
         }
     }
     
