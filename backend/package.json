@@ -6,7 +6,8 @@
     "scripts": {
         "start": "node src/index.js",
         "dev": "nodemon src/index.js",
-        "migrate": "node src/migrate.js"
+        "migrate": "node src/migrate.js",
+        "weekly-analysis": "node src/cron/weeklyAnalysis.js"
     },
     "dependencies": {
         "cors": "^2.8.5",

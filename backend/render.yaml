@@ -12,9 +12,25 @@ services:
     name: iris-api
     runtime: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install && npm run migrate
     startCommand: npm start
     healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: iris-db
+          property: connectionString
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: NODE_ENV
+        value: production
+
+  - type: cron
+    name: weekly-analysis
+    runtime: node
+    schedule: "0 0 * * 0"  # Every Sunday at midnight UTC
+    buildCommand: npm install
+    startCommand: npm run weekly-analysis
     envVars:
       - key: DATABASE_URL
         fromDatabase:
