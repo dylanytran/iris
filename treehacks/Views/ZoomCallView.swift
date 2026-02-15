@@ -121,8 +121,10 @@ struct ZoomCallView: View {
                 // Floating draggable controls bar
                 floatingControlsBar(in: geometry)
                 
-                // Live captions at bottom
-                if isTranscribing {
+                // Live captions at bottom (Zoom transcription or local fallback)
+                if zoomService.isLiveTranscriptionActive && !zoomService.latestCaption.isEmpty {
+                    zoomCaptionsBar
+                } else if isTranscribing && !speechRecognizer.transcript.isEmpty {
                     liveCaptionsBar
                 }
                 
@@ -170,6 +172,29 @@ struct ZoomCallView: View {
     
     // MARK: - Live Captions Bar
     
+    // Zoom's shared transcription captions
+    private var zoomCaptionsBar: some View {
+        VStack {
+            Spacer()
+            
+            Text(zoomService.latestCaption)
+                .font(.system(size: 18, weight: .medium))
+                .foregroundColor(.white)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.blue.opacity(0.8))
+                )
+                .padding(.horizontal, 40)
+                .padding(.bottom, showControls ? 220 : 60)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                .animation(.easeInOut(duration: 0.2), value: zoomService.latestCaption)
+        }
+    }
+    
+    // Local fallback captions
     private var liveCaptionsBar: some View {
         VStack {
             Spacer()
@@ -196,14 +221,12 @@ struct ZoomCallView: View {
     // MARK: - Full Screen Video Background
     
     private var fullScreenVideoBackground: some View {
-        let _ = print("ZoomCallView: fullScreenVideoBackground - activeShareUser: \(zoomService.activeShareUser?.getName() ?? "nil"), activeShareUserId: \(zoomService.activeShareUserId), isScreenSharing: \(zoomService.isScreenSharing)")
-        return Group {
+        Group {
             if zoomService.isScreenSharing {
                 // I'm sharing my screen - show simple indicator (not remote video to avoid resource conflict)
                 sharingActiveBackground
             } else if let shareUser = zoomService.activeShareUser {
                 // Someone is sharing their screen
-                let _ = print("ZoomCallView: Showing ZoomShareView for user: \(shareUser.getName() ?? "unknown")")
                 ZoomShareView(user: shareUser)
                     .id("share-\(zoomService.activeShareUserId)") // Force view recreation when share user changes
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -533,10 +556,10 @@ struct ZoomCallView: View {
                 HStack {
                     HStack(spacing: 6) {
                         Circle()
-                            .fill(Color.red)
+                            .fill(zoomService.isLiveTranscriptionActive ? Color.blue : Color.red)
                             .frame(width: 8, height: 8)
-                            .opacity(isTranscribing ? 1 : 0)
-                        Text("Live Transcript")
+                            .opacity((isTranscribing || zoomService.isLiveTranscriptionActive) ? 1 : 0)
+                        Text(zoomService.isLiveTranscriptionActive ? "Shared Transcript" : "Local Transcript")
                             .font(.subheadline.weight(.semibold))
                     }
                     

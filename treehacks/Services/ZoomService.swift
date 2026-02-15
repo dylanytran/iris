@@ -24,6 +24,8 @@ class ZoomService: NSObject, ObservableObject, ZoomVideoSDKDelegate {
     @Published var errorMessage: String?
     @Published var currentTranscript: String = ""
     @Published var participants: [String] = []
+    @Published var latestCaption: String = ""  // For live captions display
+    @Published var isLiveTranscriptionActive = false
     @Published var joinError: String?
     @Published var remoteUsers: [ZoomVideoSDKUser] = []
     @Published var localUser: ZoomVideoSDKUser?
@@ -433,6 +435,111 @@ class ZoomService: NSObject, ObservableObject, ZoomVideoSDKDelegate {
             
             // Check if anyone is already sharing
             self.checkForActiveShare()
+            
+            // Start live transcription
+            self.startLiveTranscription()
+        }
+    }
+    
+    // MARK: - Live Transcription
+    
+    func startLiveTranscription() {
+        guard let helper = ZoomVideoSDK.shareInstance()?.getLiveTranscriptionHelper() else {
+            print("ZoomService: ❌ Live transcription helper not available")
+            return
+        }
+        
+        // Check if we can start
+        let canStart = helper.canStartLiveTranscription()
+        print("ZoomService: Can start live transcription: \(canStart)")
+        
+        let status = helper.getLiveTranscriptionStatus()
+        print("ZoomService: Current transcription status: \(status.rawValue) (0=stop, 1=start)")
+        
+        // IMPORTANT: Start transcription FIRST, then set language
+        if canStart && status == .stop {
+            let result = helper.startLiveTranscription()
+            print("ZoomService: Start live transcription result: \(result.rawValue) (0=success)")
+            
+            if result == .Errors_Success {
+                // Now set speaking language AFTER transcription has started
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    self.configureLiveTranscriptionLanguage()
+                }
+            }
+        } else if status == .start {
+            // Already started, just configure language
+            configureLiveTranscriptionLanguage()
+        }
+    }
+    
+    private func configureLiveTranscriptionLanguage() {
+        guard let helper = ZoomVideoSDK.shareInstance()?.getLiveTranscriptionHelper() else { return }
+        
+        // Enable receiving original content
+        let enableResult = helper.enableReceiveSpokenLanguageContent(true)
+        print("ZoomService: enableReceiveSpokenLanguageContent result: \(enableResult.rawValue)")
+        
+        // Check available spoken languages
+        if let languages = helper.getAvailableSpokenLanguages() {
+            print("ZoomService: Available spoken languages: \(languages.count)")
+            for lang in languages {
+                print("ZoomService:   - \(lang.languageName ?? "unknown") (ID: \(lang.languageID))")
+            }
+            
+            // Set spoken language to English (usually ID 0 or first available)
+            if let englishLang = languages.first(where: { ($0.languageName ?? "").lowercased().contains("english") }) {
+                let setResult = helper.setSpokenLanguage(englishLang.languageID)
+                print("ZoomService: Set spoken language to English, result: \(setResult.rawValue)")
+            } else if let firstLang = languages.first {
+                let setResult = helper.setSpokenLanguage(firstLang.languageID)
+                print("ZoomService: Set spoken language to \(firstLang.languageName ?? "first"), result: \(setResult.rawValue)")
+            }
+        } else {
+            print("ZoomService: ⚠️ No spoken languages available")
+        }
+    }
+    
+    func onLiveTranscriptionStatus(_ status: ZoomVideoSDKLiveTranscriptionStatus) {
+        DispatchQueue.main.async {
+            print("ZoomService: Live transcription status changed: \(status.rawValue)")
+            self.isLiveTranscriptionActive = (status == .start)
+        }
+    }
+    
+    func onLiveTranscriptionMsgReceived(_ messageInfo: ZoomVideoSDKLiveTranscriptionMessageInfo?) {
+        guard let info = messageInfo,
+              let message = info.messageContent, !message.isEmpty else { return }
+        
+        DispatchQueue.main.async {
+            let speakerName = info.speakerName ?? "Unknown"
+            let timestamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .short)
+            
+            // Update live caption display
+            self.latestCaption = "\(speakerName): \(message)"
+            
+            // Append to full transcript
+            let entry = "[\(timestamp)] \(speakerName): \(message)\n"
+            self.currentTranscript += entry
+            
+            print("ZoomService: [Transcription] \(speakerName): \(message)")
+        }
+    }
+    
+    func onOriginalLanguageMsgReceived(_ messageInfo: ZoomVideoSDKLiveTranscriptionMessageInfo?) {
+        // Also handle original language messages (same as above)
+        guard let info = messageInfo,
+              let message = info.messageContent, !message.isEmpty else { return }
+        
+        DispatchQueue.main.async {
+            let speakerName = info.speakerName ?? "Unknown"
+            let timestamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .short)
+            
+            self.latestCaption = "\(speakerName): \(message)"
+            let entry = "[\(timestamp)] \(speakerName): \(message)\n"
+            self.currentTranscript += entry
+            
+            print("ZoomService: [Original] \(speakerName): \(message)")
         }
     }
     
