@@ -42,11 +42,11 @@ struct ContentView: View {
                             Text("Contacts")
                         }
                     
-                    // Instructions Tab (Zoom Call Transcripts)
-                    InstructionsListView()
+                    // Tasks Tab
+                    TasksListView()
                         .tabItem {
-                            Image(systemName: "doc.text.fill")
-                            Text("Instructions")
+                            Image(systemName: "checklist")
+                            Text("Tasks")
                         }
 
                     // Settings Tab
