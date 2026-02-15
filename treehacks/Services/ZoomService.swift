@@ -216,11 +216,12 @@ class ZoomService: NSObject, ObservableObject, ZoomVideoSDKDelegate {
         if let session = ZoomVideoSDK.shareInstance()?.joinSession(sessionContext) {
             print("ZoomService: joinSession called - waiting for delegate callback")
             sessionStartTime = Date()
-            // Note: isInSession will be set by onSessionJoin delegate
+            AppSpeechManager.shared.speak("Starting Zoom Call")
         } else {
             print("ZoomService: ❌ Failed to join session - joinSession returned nil")
             errorMessage = "Failed to join session"
             joinError = "Failed to start session"
+            AppSpeechManager.shared.speak("Failed to start session")
         }
     }
     
@@ -487,6 +488,7 @@ class ZoomService: NSObject, ObservableObject, ZoomVideoSDKDelegate {
             print("ZoomService: ❌ Error: \(errorDescription) (detail: \(detail))")
             self.joinError = errorDescription
             self.errorMessage = errorDescription
+            AppSpeechManager.shared.speak(errorDescription)
         }
     }
     

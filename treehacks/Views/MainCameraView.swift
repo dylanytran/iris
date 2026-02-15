@@ -137,7 +137,6 @@ struct MainCameraView: View {
                         if let player = player {
                             VideoPlayer(player: player)
                                 .frame(width: 256, height: 192)
-                                .rotationEffect(.degrees(180))
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                                 .shadow(color: .black.opacity(0.4), radius: 8, y: 4)
                         }
@@ -284,6 +283,8 @@ struct MainCameraView: View {
                     playerLooper = looper
                     player = queuePlayer
                     queuePlayer.play()
+
+                    AppSpeechManager.shared.speak(firstSentence(of: response.answer))
                 }
 
                 showResult = true
@@ -310,6 +311,7 @@ struct MainCameraView: View {
     // MARK: - Dismiss
 
     private func dismissResult() {
+        AppSpeechManager.shared.stop()
         player?.pause()
         player = nil
         playerLooper = nil

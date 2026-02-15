@@ -70,7 +70,7 @@ final class VoiceAssistant {
 
         1. **Memory Search** - Search recent video clips recorded by the glasses. \
         Use `search_memory` when the user asks about something they saw, where they \
-        placed an object, or wants to recall a recent event. Do not repeat the context verbatim
+        placed an object, or wants to recall a recent event. Do not repeat the context verbatim.
 
         2. **Task Management** - Manage the user's to-do list. Use the task tools \
         (`list_tasks`, `add_task`, `update_task`, `delete_task`) to list, create, \
@@ -601,13 +601,12 @@ final class VoiceAssistant {
         // Check if already in a session
         let alreadyInSession = await MainActor.run { ZoomService.shared.isInSession }
         if alreadyInSession {
-            return jsonString([
-                "success": false,
-                "error": "Already in a Zoom call. Please end the current call first."
-            ] as [String: Any])
+            let msg = "Already in a Zoom call. Please end the current call first."
+            await MainActor.run { AppSpeechManager.shared.speak(msg) }
+            return jsonString(["success": false, "error": msg] as [String: Any])
         }
 
-        // Start the Zoom call
+        // Start the Zoom call (ZoomService speaks "Starting Zoom Call" when join starts)
         await MainActor.run {
             ZoomService.shared.joinSession(sessionName: sessionName, userName: userName)
         }
@@ -624,10 +623,9 @@ final class VoiceAssistant {
 
     private func executeCallContact(args: [String: Any]) async -> String {
         guard let contactName = args["contact_name"] as? String, !contactName.isEmpty else {
-            return jsonString([
-                "success": false,
-                "error": "No contact name provided"
-            ] as [String: Any])
+            let msg = "No contact name provided"
+            await MainActor.run { AppSpeechManager.shared.speak(msg) }
+            return jsonString(["success": false, "error": msg] as [String: Any])
         }
 
         print("[VoiceAssistant] call_contact for: \(contactName)")
@@ -641,19 +639,19 @@ final class VoiceAssistant {
         }
 
         guard let contact = matches.first else {
-            return jsonString([
-                "success": false,
-                "error": "No contact found with name '\(contactName)'"
-            ] as [String: Any])
+            let msg = "No contact found with name '\(contactName)'"
+            await MainActor.run { AppSpeechManager.shared.speak(msg) }
+            return jsonString(["success": false, "error": msg] as [String: Any])
         }
 
         // Check if contact has a phone number
         guard !contact.phoneNumber.isEmpty else {
-            return jsonString([
-                "success": false,
-                "error": "\(contact.name) doesn't have a phone number saved"
-            ] as [String: Any])
+            let msg = "\(contact.name) doesn't have a phone number saved"
+            await MainActor.run { AppSpeechManager.shared.speak(msg) }
+            return jsonString(["success": false, "error": msg] as [String: Any])
         }
+
+        await MainActor.run { AppSpeechManager.shared.speak("Calling \(contact.name)") }
 
         print("[VoiceAssistant] Calling \(contact.name) at \(contact.phoneNumber)")
 
@@ -668,9 +666,11 @@ final class VoiceAssistant {
                         "message": "Calling \(contact.name)"
                     ] as [String: Any]))
                 } else {
+                    let msg = "Failed to initiate call to \(contact.name)"
+                    Task { @MainActor in AppSpeechManager.shared.speak(msg) }
                     continuation.resume(returning: self.jsonString([
                         "success": false,
-                        "error": "Failed to initiate call to \(contact.name)"
+                        "error": msg
                     ] as [String: Any]))
                 }
             }
