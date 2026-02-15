@@ -38,10 +38,33 @@ struct ContactDetailView: View {
                                 Text(contact.relationship)
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
+                                if !contact.phoneNumber.isEmpty {
+                                    Text(contact.phoneNumber)
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                             Spacer()
                         }
                         .listRowBackground(Color.clear)
+                    }
+
+                    // Phone Number (tap to call)
+                    if !contact.phoneNumber.isEmpty {
+                        Section("Phone") {
+                            Button {
+                                if let url = URL(string: "tel:\(contact.phoneNumber.filter { $0.isNumber })") {
+                                    UIApplication.shared.open(url)
+                                }
+                            } label: {
+                                HStack {
+                                    Label(contact.phoneNumber, systemImage: "phone.fill")
+                                    Spacer()
+                                    Image(systemName: "arrow.up.forward.app")
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
                     }
 
                     // Face Embeddings

@@ -10,6 +10,7 @@ struct Person: Identifiable {
     var name: String
     var relationship: String
     var notes: String
+    var phoneNumber: String
     /// Multiple face embeddings (one per reference photo) for better recognition.
     var faceEmbeddings: [[Float]]
     var referencePhotos: [UIImage]
@@ -21,6 +22,7 @@ struct Person: Identifiable {
             name: name,
             relationship: relationship,
             notes: notes,
+            phoneNumber: phoneNumber,
             faceEmbeddings: faceEmbeddings,
             referenceImageFile: nil,
             referenceImageData: nil,
@@ -34,6 +36,7 @@ struct PersonPayload: Codable {
     var name: String
     var relationship: String
     var notes: String
+    var phoneNumber: String?
     /// Multiple face embeddings (one per reference photo).
     var faceEmbeddings: [[Float]]
     var referenceImageFile: String?
@@ -49,6 +52,7 @@ extension PersonPayload {
             name: name,
             relationship: relationship,
             notes: notes,
+            phoneNumber: phoneNumber ?? "",
             faceEmbeddings: faceEmbeddings,
             referencePhotos: []
         )
@@ -86,6 +90,7 @@ enum PersonLoader {
                 name: payload.name,
                 relationship: payload.relationship,
                 notes: payload.notes,
+                phoneNumber: payload.phoneNumber ?? "",
                 faceEmbeddings: payload.faceEmbeddings,
                 referencePhotos: photos
             )

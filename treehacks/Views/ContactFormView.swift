@@ -18,6 +18,7 @@ struct ContactFormView: View {
 
     @State private var name: String = ""
     @State private var relationship: String = ""
+    @State private var phoneNumber: String = ""
     @State private var faceEmbeddings: [[Float]] = []
 
     // Photo capture state
@@ -48,6 +49,12 @@ struct ContactFormView: View {
                 Section("Relationship") {
                     TextField("e.g. Friend, Coworker, Family", text: $relationship)
                         .autocorrectionDisabled()
+                }
+
+                Section("Phone Number") {
+                    TextField("Phone number", text: $phoneNumber)
+                        .keyboardType(.phonePad)
+                        .textContentType(.telephoneNumber)
                 }
 
                 Section {
@@ -125,6 +132,7 @@ struct ContactFormView: View {
                 if case .edit(let person) = mode {
                     name = person.name
                     relationship = person.relationship
+                    phoneNumber = person.phoneNumber
                     faceEmbeddings = person.faceEmbeddings
                 }
             }
@@ -181,6 +189,7 @@ struct ContactFormView: View {
     private func saveContact() {
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         let trimmedRelationship = relationship.trimmingCharacters(in: .whitespaces)
+        let trimmedPhone = phoneNumber.trimmingCharacters(in: .whitespaces)
 
         switch mode {
         case .add:
@@ -189,6 +198,7 @@ struct ContactFormView: View {
                 name: trimmedName,
                 relationship: trimmedRelationship,
                 notes: "",
+                phoneNumber: trimmedPhone,
                 faceEmbeddings: faceEmbeddings,
                 referencePhotos: []
             )
@@ -198,6 +208,7 @@ struct ContactFormView: View {
             var updated = existing
             updated.name = trimmedName
             updated.relationship = trimmedRelationship
+            updated.phoneNumber = trimmedPhone
             updated.faceEmbeddings = faceEmbeddings
             store.updateContact(updated)
         }

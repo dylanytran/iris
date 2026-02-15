@@ -66,7 +66,7 @@ final class VoiceAssistant {
         You are a helpful voice assistant integrated into a pair of smart glasses. \
         The current date and time is \(now).
 
-        You have three capabilities:
+        You have five capabilities:
 
         1. **Memory Search** - Search recent video clips recorded by the glasses. \
         Use `search_memory` when the user asks about something they saw, where they \
@@ -80,11 +80,20 @@ final class VoiceAssistant {
         3. **Contact Lookup** - Look up people in the user's contact book. Use \
         `search_contacts` to find a specific person or `list_contacts` to show everyone.
 
+        4. **Zoom Calls** - Start a Zoom video call. Use `start_zoom_call` when the user \
+        asks to start a Zoom meeting or video call.
+
+        5. **Phone Calls** - Make a phone call to a contact. Use `call_contact` when the user \
+        says "call [name]" or "phone [name]". This will look up the contact and dial their number.
+
         Guidelines:
         - Be helpful, warm, and concise (2-4 sentences).
         - When searching memory, describe what was found naturally.
         - When managing tasks, confirm the action and briefly repeat what changed.
         - When looking up contacts, share the relevant details.
+        - When starting a Zoom call, confirm the call is being started.
+        - When making a phone call, confirm you're calling the contact.
+        - If a user says "call [name]" without specifying Zoom, use `call_contact` for a phone call.
         - If a request is ambiguous, use your best judgment about which tool to use.
         - You may call multiple tools in sequence if needed.
         - Your response will be displayed as text on the user's smart glasses.
@@ -235,6 +244,35 @@ final class VoiceAssistant {
                         "required": ["query"]
                     }
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "start_zoom_call",
+                    "description": "Start a Zoom video call. Use when the user asks to start a call, start a meeting, or join a video call.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {},
+                        "required": []
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "call_contact",
+                    "description": "Make a phone call to a contact. Use when the user says 'call [name]' or 'phone [name]'. This will look up the contact and dial their phone number.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "contact_name": {
+                                "type": "string",
+                                "description": "The name of the contact to call"
+                            }
+                        },
+                        "required": ["contact_name"]
+                    }
+                }
             }
         ]
         """.data(using: .utf8)!
@@ -279,8 +317,8 @@ final class VoiceAssistant {
             guard let toolCalls = assistantMessage["tool_calls"] as? [[String: Any]],
                   !toolCalls.isEmpty else {
                 let content = assistantMessage["content"] as? String
-                    ?? "I'm sorry, I couldn't process that."
-                return VoiceAssistantResponse(answer: content, clipResult: lastClipResult)
+                print("[VoiceAssistant] Final response content: \(content ?? "nil")")
+                return VoiceAssistantResponse(answer: content ?? "I'm sorry, I couldn't process that.", clipResult: lastClipResult)
             }
 
             // Append the assistant's message (including tool_calls) to the conversation
@@ -363,14 +401,16 @@ final class VoiceAssistant {
         }
 
         switch name {
-        case "search_memory":   return executeSearchMemory(args: args, clips: clips)
-        case "list_tasks":      return await executeListTasks(args: args)
-        case "add_task":        return await executeAddTask(args: args)
-        case "update_task":     return await executeUpdateTask(args: args)
-        case "delete_task":     return await executeDeleteTask(args: args)
-        case "list_contacts":   return await executeListContacts()
-        case "search_contacts": return await executeSearchContacts(args: args)
-        default:                return jsonString(["error": "Unknown tool: \(name)"])
+        case "search_memory":    return executeSearchMemory(args: args, clips: clips)
+        case "list_tasks":       return await executeListTasks(args: args)
+        case "add_task":         return await executeAddTask(args: args)
+        case "update_task":      return await executeUpdateTask(args: args)
+        case "delete_task":      return await executeDeleteTask(args: args)
+        case "list_contacts":    return await executeListContacts()
+        case "search_contacts":  return await executeSearchContacts(args: args)
+        case "start_zoom_call":  return await executeStartZoomCall(args: args)
+        case "call_contact":     return await executeCallContact(args: args)
+        default:                 return jsonString(["error": "Unknown tool: \(name)"])
         }
     }
 
@@ -534,10 +574,107 @@ final class VoiceAssistant {
                 person.name.lowercased().contains(query)
                 || person.relationship.lowercased().contains(query)
                 || person.notes.lowercased().contains(query)
+                || person.phoneNumber.contains(query)
             }
         }
 
         return jsonString(contactsPayload(matches, query: query))
+    }
+
+    // MARK: - Tool: start_zoom_call
+
+    private func executeStartZoomCall(args: [String: Any]) async -> String {
+        // Use a fixed session name for simplicity
+        let sessionName = "Iris"
+        let userName = args["user_name"] as? String ?? "User"
+        
+        print("[VoiceAssistant] start_zoom_call args: \(args)")
+        print("[VoiceAssistant] Starting Zoom call - session: \(sessionName), user: \(userName)")
+
+        // Ensure SDK is initialized
+        await MainActor.run {
+            if !ZoomService.shared.isInitialized {
+                ZoomService.shared.initializeSDK()
+            }
+        }
+
+        // Check if already in a session
+        let alreadyInSession = await MainActor.run { ZoomService.shared.isInSession }
+        if alreadyInSession {
+            return jsonString([
+                "success": false,
+                "error": "Already in a Zoom call. Please end the current call first."
+            ] as [String: Any])
+        }
+
+        // Start the Zoom call
+        await MainActor.run {
+            ZoomService.shared.joinSession(sessionName: sessionName, userName: userName)
+        }
+
+        return jsonString([
+            "success": true,
+            "session_name": sessionName,
+            "user_name": userName,
+            "message": "Starting Zoom call: \(sessionName)"
+        ] as [String: Any])
+    }
+
+    // MARK: - Tool: call_contact
+
+    private func executeCallContact(args: [String: Any]) async -> String {
+        guard let contactName = args["contact_name"] as? String, !contactName.isEmpty else {
+            return jsonString([
+                "success": false,
+                "error": "No contact name provided"
+            ] as [String: Any])
+        }
+
+        print("[VoiceAssistant] call_contact for: \(contactName)")
+
+        // Search for the contact
+        let query = contactName.lowercased()
+        let matches: [Person] = await MainActor.run {
+            contactStore.contacts.filter { person in
+                person.name.lowercased().contains(query)
+            }
+        }
+
+        guard let contact = matches.first else {
+            return jsonString([
+                "success": false,
+                "error": "No contact found with name '\(contactName)'"
+            ] as [String: Any])
+        }
+
+        // Check if contact has a phone number
+        guard !contact.phoneNumber.isEmpty else {
+            return jsonString([
+                "success": false,
+                "error": "\(contact.name) doesn't have a phone number saved"
+            ] as [String: Any])
+        }
+
+        print("[VoiceAssistant] Calling \(contact.name) at \(contact.phoneNumber)")
+
+        // Initiate the call via VAPI
+        return await withCheckedContinuation { continuation in
+            VAPIService.shared.callPhoneNumber(contact.phoneNumber, contactName: contact.name) { success in
+                if success {
+                    continuation.resume(returning: self.jsonString([
+                        "success": true,
+                        "contact_name": contact.name,
+                        "phone_number": contact.phoneNumber,
+                        "message": "Calling \(contact.name)"
+                    ] as [String: Any]))
+                } else {
+                    continuation.resume(returning: self.jsonString([
+                        "success": false,
+                        "error": "Failed to initiate call to \(contact.name)"
+                    ] as [String: Any]))
+                }
+            }
+        }
     }
 
     // MARK: - Helpers
@@ -548,6 +685,7 @@ final class VoiceAssistant {
                 "id":            p.id,
                 "name":          p.name,
                 "relationship":  p.relationship,
+                "phone_number":  p.phoneNumber,
                 "notes":         p.notes,
                 "has_face_data": !p.faceEmbeddings.isEmpty
             ] as [String: Any]
