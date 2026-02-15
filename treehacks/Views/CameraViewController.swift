@@ -240,7 +240,7 @@ extension CameraViewController {
 
             let shapeLayer = CAShapeLayer()
             shapeLayer.frame = rect
-            shapeLayer.borderColor = UIColor.systemGreen.cgColor
+            shapeLayer.borderColor = UIColor.systemGray.cgColor
             shapeLayer.borderWidth = 2.5
             shapeLayer.cornerRadius = 6
             shapeLayer.backgroundColor = UIColor.clear.cgColor
