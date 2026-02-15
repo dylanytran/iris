@@ -10,7 +10,6 @@ import SwiftUI
 /// Main camera view that combines:
 /// - Live camera preview
 /// - Recording status indicator
-/// - Memory recall button
 /// - Voice query button (semantic search over indexed clips)
 struct MainCameraView: View {
 
@@ -18,7 +17,6 @@ struct MainCameraView: View {
     @ObservedObject var recordingManager: RecordingManager
     @ObservedObject var clipManager: ClipManager
 
-    @State private var showMemoryRecall = false
     @State private var showVoiceQuery = false
 
     var body: some View {
@@ -75,27 +73,9 @@ struct MainCameraView: View {
 
                 Spacer()
 
-                // Bottom: Action buttons
-                HStack(spacing: 16) {
-                    // Memory Recall button
-                    Button(action: { showMemoryRecall = true }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "clock.arrow.circlepath")
-                                .font(.system(size: 18, weight: .semibold))
-                            Text("Recall")
-                                .font(.system(size: 16, weight: .bold))
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 22)
-                        .padding(.vertical, 14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 18)
-                                .fill(Color.blue.opacity(0.85))
-                                .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
-                        )
-                    }
-
-                    // Voice Query button
+                // Bottom: Ask button (centered)
+                HStack {
+                    Spacer(minLength: 0)
                     Button(action: { showVoiceQuery = true }) {
                         HStack(spacing: 8) {
                             Image(systemName: "mic.fill")
@@ -112,6 +92,7 @@ struct MainCameraView: View {
                                 .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
                         )
                     }
+                    Spacer(minLength: 0)
                 }
                 .padding(.bottom, 20)
             }
@@ -128,9 +109,6 @@ struct MainCameraView: View {
         }
         .onDisappear {
             clipManager.stop()
-        }
-        .sheet(isPresented: $showMemoryRecall) {
-            MemoryRecallView(recordingManager: recordingManager)
         }
         .sheet(isPresented: $showVoiceQuery) {
             VoiceQueryView(
